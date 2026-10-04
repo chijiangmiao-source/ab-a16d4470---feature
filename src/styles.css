@@ -52,6 +52,46 @@ textarea {
 textarea:focus { outline: 2px solid var(--primary); outline-offset: 0; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.fixed-pair {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px 14px;
+  margin: 14px 0 0;
+}
+.fixed-pair legend { font-weight: 600; padding: 0 6px; }
+.fixed-pair p { margin: 0 0 4px; }
+.fixed-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+.fixed-row input {
+  flex: 1 1 180px;
+  background: #0e1626;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.fixed-row input:focus { outline: 2px solid var(--primary); outline-offset: 0; }
+.fixed-dash { color: var(--muted); }
+
+tr.pair-fixed td { background: rgba(63, 124, 255, 0.14); }
+.badge {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.warn-box {
+  background: rgba(255, 181, 71, 0.08);
+  border: 1px solid rgba(255, 181, 71, 0.45);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--warn);
+}
 button {
   background: var(--card-2);
   color: var(--text);

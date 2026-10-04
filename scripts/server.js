@@ -5,8 +5,9 @@
  *
  * - 页面 / Web Worker 等静态资源由 dist 提供；
  * - GET  /health 健康响应；
- * - POST /api/match 在服务端复用与 Web Worker 完全相同的
- *   matching.js / parse.js 规则（用于 HTTP 冒烟与外部核验）；
+ * - POST /api/match 在服务端复用与 Web Worker 完全相同的规则编排
+ *   （review.js → matching.js / parse.js，用于 HTTP 冒烟与外部核验）；
+ *   请求体可附带 "fixedPair": {"a": "...", "b": "..."} 执行固定配对预演；
  *   浏览器页面本身始终在 Web Worker 中计算，不调用本接口。
  *
  * 端口 / 监听地址可由环境变量配置：HOST、PORT。
@@ -15,8 +16,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseInput, presentPairs, verifyCertificate } = require('../src/parse');
-const { perfectMatching } = require('../src/matching');
+const { reviewMatching } = require('../src/review');
 
 const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number.parseInt(process.env.PORT || '8080', 10);
@@ -90,34 +90,30 @@ async function handleMatch(req, res) {
     sendJson(res, 400, { ok: false, errors: ['请求体不是合法 JSON'] });
     return;
   }
-  const parsed = parseInput(String(payload.channels ?? ''), String(payload.edges ?? ''));
-  if (parsed.errors.length) {
-    sendJson(res, 200, { ok: true, valid: false, errors: parsed.errors });
+  const hasFixed = Object.prototype.hasOwnProperty.call(payload, 'fixedPair') && payload.fixedPair != null;
+  const outcome = reviewMatching(
+    String(payload.channels ?? ''),
+    String(payload.edges ?? ''),
+    hasFixed ? payload.fixedPair : null
+  );
+  if (outcome.kind === 'invalid') {
+    sendJson(res, 200, { ok: true, valid: false, errors: outcome.errors });
     return;
   }
-  const result = perfectMatching(parsed.channels.length, parsed.edges);
-  if (result.matched) {
-    sendJson(res, 200, {
-      ok: true,
-      valid: true,
-      matched: true,
-      channels: parsed.channels,
-      pairs: presentPairs(parsed.channels, result.matching),
-    });
-    return;
-  }
-  const cert = result.certificate;
-  sendJson(res, 200, {
+  const body = {
     ok: true,
     valid: true,
-    matched: false,
-    channels: parsed.channels,
-    certificate: {
-      removed: cert.removed.map((i) => parsed.channels[i]),
-      oddComponents: cert.oddComponents.map((comp) => comp.map((i) => parsed.channels[i])),
-      checks: verifyCertificate(parsed.channels.length, parsed.edges, cert.removed, cert.oddComponents),
-    },
-  });
+    matched: outcome.kind === 'matched' || outcome.kind === 'fixed-matched',
+    channels: outcome.channels,
+  };
+  if (outcome.fixedPair) {
+    body.fixed = true;
+    body.fixedPair = outcome.fixedPair;
+  }
+  if (outcome.pairs) body.pairs = outcome.pairs;
+  if (outcome.remainingChannels) body.remainingChannels = outcome.remainingChannels;
+  if (outcome.certificate) body.certificate = outcome.certificate;
+  sendJson(res, 200, body);
 }
 
 const server = http.createServer((req, res) => {

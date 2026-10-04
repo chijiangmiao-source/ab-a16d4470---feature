@@ -9,6 +9,24 @@
 
 计算在 **Web Worker** 中按**一般图（非二分图）**语义执行 **Edmonds 缩花（blossom）算法**。
 
+## 固定配对预演（固定边必须共同接管）
+
+取得完整配对后，值班工程师还可在录入区下方的「固定配对预演」中，从**已录入通道**里
+选择两个通道发起固定配对复核，预演某条兼容边被指定为必须共同接管的固定组合：
+
+- 固定边必须**已录入**且**两个端点不同**；随后只在**删去这两个端点后的剩余图**上求完整配对，
+  求解仍沿用一般图 Edmonds 缩花；
+- **可行**：固定组合与剩余配对合并，按现有稳定顺序展示，全部通道各出现且仅出现一次；
+- **不可行**：展示的 Tutte 阻塞集合与奇数分量**仅针对剩余通道**（在剩余图上逐项核对），
+  **不能误作原图的失败证书**——不绑定该固定组合时，原图仍可能完整配对；
+- 选择不存在的边、未知通道或本次输入校验失败时，给出明确反馈并**清除旧的固定配对结论**；
+  普通「复核配对」按原语义独立工作，两种复核互不影响；
+- Worker 响应携带请求序号，较早请求的固定约束结果不会覆盖最新结论。
+
+HTTP 核验：`POST /api/match` 请求体附带 `"fixedPair": {"a": "CH-1", "b": "CH-2"}` 即可执行
+同一预演；响应含 `fixed: true`、`fixedPair`，不可行时另含仅覆盖剩余通道的
+`remainingChannels` 与证书。
+
 ## 输入校验（均给出明确中文反馈）
 
 | 情形 | 反馈 |
@@ -18,6 +36,7 @@
 | 含未知端点的边 | 拒绝 |
 | 通道数非偶数 / 少于 3 / 多于 48 / 标识重复 | 拒绝 |
 | 空边图（无任何兼容边） | 拒绝 |
+| 固定组合含未录入通道 / 端点相同 / 固定边未录入 | 拒绝并清除旧固定配对结论 |
 
 任何失败提交都会清空上一次通过的配对，绝不保留旧结果。
 
@@ -25,16 +44,17 @@
 
 ```
 src/
-  matching.js   Edmonds 缩花 + Tutte-Berge 失败证书（Node/Worker 同构）
-  parse.js      输入解析/校验、配对排序、证书独立复核（同构）
-  worker.js     Web Worker 入口（importScripts 加载上述两份规则代码）
+  matching.js   Edmonds 缩花 + Tutte-Berge 失败证书 + 固定边剩余图求解（Node/Worker 同构）
+  parse.js      输入解析/校验、固定组合校验、配对排序、证书独立复核（同构）
+  review.js     复核编排：普通 / 固定两种模式统一入口（同构，Worker 与服务端共用）
+  worker.js     Web Worker 入口（importScripts 加载上述规则代码）
   app.js        主线程：仅做输入采集、Worker 调度与渲染
   index.html / styles.css
 scripts/
-  server.js     零依赖静态服务 + GET /health + POST /api/match（冒烟复用同一规则）
+  server.js     零依赖静态服务 + GET /health + POST /api/match（冒烟复用同一规则编排）
   build.js      构建：发布 src → dist 并做完整性断言
-  smoke.js      单次 HTTP 冒烟（健康/静态/缩花成功/失败证书/非法输入），退出码结束
-test/           node:test：n≤6 全图穷举 + 随机 fuzz + 解析 + Worker 集成（共 35 项）
+  smoke.js      单次 HTTP 冒烟（健康/静态/缩花成功/失败证书/固定预演/非法输入），退出码结束
+test/           node:test：n≤6 全图穷举 + 固定边穷举 + 随机 fuzz + 解析 + 复核编排 + Worker 集成（共 58 项）
 compose.yaml    web（可配置宿主端口+健康检查）与 verify（单次校验）两个服务
 Dockerfile
 ```

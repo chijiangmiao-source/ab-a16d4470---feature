@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { perfectMatching } = require('../src/matching');
+const { perfectMatching, perfectMatchingWithFixedEdge } = require('../src/matching');
 
 /** 暴力回溯：是否存在完美匹配（小图基准） */
 function bruteHasPerfect(n, edges) {
@@ -254,4 +254,105 @@ test('大 n fuzz（14–24）：无挂起，结果与证书均可独立核验', 
       assertCertificateMatchesGraph(n, edges, r.certificate);
     }
   }
+});
+
+/** 暴力基准：固定 (u,v) 后，剩余图是否存在完美匹配 */
+function bruteFixedHasPerfect(n, edges, u, v) {
+  const rest = [];
+  for (let i = 0; i < n; i++) if (i !== u && i !== v) rest.push(i);
+  const idx = new Map(rest.map((o, i) => [o, i]));
+  const sub = [];
+  for (const [a, b] of edges) {
+    if (idx.has(a) && idx.has(b)) sub.push([idx.get(a), idx.get(b)]);
+  }
+  return bruteHasPerfect(rest.length, sub);
+}
+
+/** 固定边结果的公共断言：合并配对合法且含固定边；证书仅在剩余图上成立 */
+function assertFixedOutcome(n, edges, u, v, r) {
+  assert.equal(r.matched, bruteFixedHasPerfect(n, edges, u, v),
+    `图 ${JSON.stringify(edges)} 固定 (${u},${v}) 判定不一致`);
+  const rest = [];
+  for (let i = 0; i < n; i++) if (i !== u && i !== v) rest.push(i);
+  assert.deepEqual(r.remaining, rest, '剩余顶点清单应为删去固定端点后的升序下标');
+  if (r.matched) {
+    assertValidMatching(n, edges, r.matching);
+    assert.ok(
+      r.matching.some(([a, b]) => a === Math.min(u, v) && b === Math.max(u, v)),
+      '合并配对未包含固定边'
+    );
+  } else {
+    assert.ok(r.certificate.oddComponents.length > r.certificate.removed.length,
+      '剩余图 Tutte 严格不等式不成立');
+    assertCertificateMatchesGraph(r.remaining.length, r.remainingEdges, r.certificate);
+  }
+}
+
+test('固定边预演：n=4 全部图 × 每条已录入边，与暴力一致', () => {
+  let checked = 0;
+  for (const edges of allGraphs(4)) {
+    for (const [u, v] of edges) {
+      assertFixedOutcome(4, edges, u, v, perfectMatchingWithFixedEdge(4, edges, u, v));
+      checked++;
+    }
+  }
+  assert.ok(checked > 0);
+});
+
+test('固定边预演：n=6 全部图逐图固定首条边，与暴力一致', () => {
+  let checked = 0;
+  for (const edges of allGraphs(6)) {
+    if (edges.length === 0) continue;
+    const [u, v] = edges[0];
+    assertFixedOutcome(6, edges, u, v, perfectMatchingWithFixedEdge(6, edges, u, v));
+    checked++;
+  }
+  assert.ok(checked > 30000);
+});
+
+test('固定边预演：随机图 fuzz（n=6..12）与暴力一致', () => {
+  let seed = 20261005;
+  const rand = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x80000000;
+  };
+  for (let iter = 0; iter < 600; iter++) {
+    const n = 2 * (3 + Math.floor(rand() * 4)); // 6,8,10,12
+    const pairs = [];
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairs.push([i, j]);
+    const p = 0.2 + rand() * 0.5;
+    const edges = pairs.filter(() => rand() < p);
+    if (edges.length === 0) continue;
+    const [u, v] = edges[Math.floor(rand() * edges.length)];
+    assertFixedOutcome(n, edges, u, v, perfectMatchingWithFixedEdge(n, edges, u, v));
+  }
+});
+
+test('固定边预演：星型 K1,3 固定一边后，证书仅涉剩余两点', () => {
+  const edges = [[0, 1], [0, 2], [0, 3]];
+  const r = perfectMatchingWithFixedEdge(4, edges, 0, 1);
+  assert.equal(r.matched, false);
+  assert.deepEqual(r.remaining, [2, 3]);
+  assert.deepEqual(r.remainingEdges, []);
+  assert.deepEqual(r.certificate.removed, []);
+  assert.deepEqual(r.certificate.oddComponents, [[0], [1]]);
+});
+
+test('固定边预演：双三角花固定桥边后剩余图仍可完整配对', () => {
+  const edges = [
+    [0, 1], [1, 2], [2, 0],
+    [3, 4], [4, 5], [5, 3],
+    [0, 3],
+  ];
+  const r = perfectMatchingWithFixedEdge(6, edges, 0, 3);
+  assert.equal(r.matched, true);
+  assertValidMatching(6, edges, r.matching);
+  assert.ok(r.matching.some(([a, b]) => a === 0 && b === 3), '合并配对未包含固定边 [0,3]');
+});
+
+test('固定边预演：非法端点抛错（相同 / 越界 / 非整数）', () => {
+  assert.throws(() => perfectMatchingWithFixedEdge(4, [[0, 1]], 0, 0), /固定边端点非法/);
+  assert.throws(() => perfectMatchingWithFixedEdge(4, [[0, 1]], 0, 4), /固定边端点非法/);
+  assert.throws(() => perfectMatchingWithFixedEdge(4, [[0, 1]], -1, 2), /固定边端点非法/);
+  assert.throws(() => perfectMatchingWithFixedEdge(4, [[0, 1]], 0.5, 2), /固定边端点非法/);
 });

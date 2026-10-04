@@ -8,6 +8,8 @@
  *    - 含奇环的一般图缩花成功；
  *    - 星型图失败并给出满足严格不等式的 Tutte 证书；
  *    - 非法输入（自环 / 奇数通道 / 未知端点 / 空边图）被明确拒绝。
+ * 4. 固定配对预演：可行时合并配对覆盖全部通道，不可行时证书仅针对剩余通道，
+ *    未录入的固定边 / 未知通道被明确拒绝。
  * 全部通过后以退出码 0 结束，任一失败以退出码 1 结束并关闭服务。
  */
 process.env.PORT = process.env.PORT || '0';
@@ -26,11 +28,13 @@ function check(cond, message) {
   }
 }
 
-async function postMatch(base, channels, edges) {
+async function postMatch(base, channels, edges, fixedPair) {
+  const body = { channels, edges };
+  if (fixedPair) body.fixedPair = fixedPair;
   const resp = await fetch(`${base}/api/match`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ channels, edges }),
+    body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
@@ -120,6 +124,45 @@ async function main() {
 
   const tooMany = await postMatch(base, Array.from({ length: 50 }, (_, i) => `N${i}`).join(' '), '');
   check(tooMany.valid === false && tooMany.errors.some((e) => e.includes('3–48')), '超过 48 个通道被拒绝');
+
+  // --- 固定配对预演：固定边必须共同接管，仅在剩余图上求解 ---
+  console.log('[smoke] 6) 固定配对预演（固定组合 + 剩余图求解）');
+  const fixedOk = await postMatch(
+    base,
+    'F1 F2 A1 A2 A3 B1 B2 B3',
+    'F1 F2\nA1 A2\nA2 A3\nA3 A1\nB1 B2\nB2 B3\nB3 B1\nA1 B1',
+    { a: 'F2', b: 'F1' }
+  );
+  check(fixedOk.valid === true && fixedOk.matched === true && fixedOk.fixed === true,
+    '固定预演可行：剩余图（双三角花）在一般图语义下仍可完整配对');
+  check(Array.isArray(fixedOk.pairs) && fixedOk.pairs.length === 4, `合并配对共 4 对（实际 ${fixedOk.pairs?.length}）`);
+  check(fixedOk.pairs.some(([a, b]) => a === 'F1' && b === 'F2'), '合并配对包含固定组合 F1 — F2');
+  const fixedIds = new Set();
+  for (const [a, b] of fixedOk.pairs) { fixedIds.add(a); fixedIds.add(b); }
+  check(fixedIds.size === 8, '合并配对覆盖全部 8 个通道且每个通道只出现一次');
+
+  const fixedNo = await postMatch(base, 'C0 C1 C2 C3', 'C0 C1\nC0 C2\nC0 C3', { a: 'C0', b: 'C1' });
+  check(fixedNo.valid === true && fixedNo.matched === false, '固定预演不可行：删去 C0、C1 后剩余两点无兼容边');
+  check(Array.isArray(fixedNo.remainingChannels) && fixedNo.remainingChannels.join(',') === 'C2,C3',
+    `证书范围仅为剩余通道 C2,C3（实际 ${fixedNo.remainingChannels?.join(',')}）`);
+  check(fixedNo.certificate.removed.length === 0 && fixedNo.certificate.oddComponents.length === 2,
+    '剩余图证书：S=∅，2 个单点奇分量，2 > 0');
+  check(fixedNo.certificate.oddComponents.flat().every((id) => id === 'C2' || id === 'C3'),
+    '阻塞集合与奇数分量均不涉及固定组合端点');
+  check(fixedNo.certificate.checks.length >= 5 && fixedNo.certificate.checks.every((k) => k.ok),
+    '剩余图证书逐项核对全部通过');
+
+  const fixedMissing = await postMatch(base, 'C0 C1 C2 C3', 'C0 C1\nC0 C2\nC0 C3', { a: 'C1', b: 'C2' });
+  check(fixedMissing.valid === false && fixedMissing.errors.some((e) => e.includes('不在已录入')),
+    '未录入的固定边被明确拒绝');
+
+  const fixedUnknown = await postMatch(base, 'C0 C1 C2 C3', 'C0 C1\nC0 C2\nC0 C3', { a: 'C0', b: 'XX' });
+  check(fixedUnknown.valid === false && fixedUnknown.errors.some((e) => e.includes('未录入')),
+    '固定组合含未知通道被明确拒绝');
+
+  const fixedSame = await postMatch(base, 'C0 C1 C2 C3', 'C0 C1\nC0 C2\nC0 C3', { a: 'C0', b: 'C0' });
+  check(fixedSame.valid === false && fixedSame.errors.some((e) => e.includes('必须不同')),
+    '固定组合两端点相同被明确拒绝');
 
   server.close();
   if (failures.length) {

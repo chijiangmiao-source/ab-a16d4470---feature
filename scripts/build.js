@@ -12,7 +12,7 @@ const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'src');
 const DIST = path.join(ROOT, 'dist');
 
-const REQUIRED = ['index.html', 'styles.css', 'app.js', 'worker.js', 'matching.js', 'parse.js'];
+const REQUIRED = ['index.html', 'styles.css', 'app.js', 'worker.js', 'matching.js', 'parse.js', 'review.js'];
 
 function rmrf(p) {
   fs.rmSync(p, { recursive: true, force: true });
@@ -42,12 +42,12 @@ for (const ref of ['styles.css', 'app.js']) {
   if (!html.includes(ref)) throw new Error(`index.html 未引用 ${ref}`);
 }
 const worker = fs.readFileSync(path.join(DIST, 'worker.js'), 'utf8');
-for (const ref of ['matching.js', 'parse.js']) {
+for (const ref of ['matching.js', 'parse.js', 'review.js']) {
   if (!worker.includes(`importScripts`) || !worker.includes(ref)) {
     throw new Error(`worker.js 未通过 importScripts 加载 ${ref}`);
   }
 }
-if (!worker.includes('perfectMatching')) throw new Error('worker.js 未调用 perfectMatching');
+if (!worker.includes('reviewMatching')) throw new Error('worker.js 未调用 reviewMatching 统一编排');
 
 const files = fs.readdirSync(DIST);
 console.log(`[build] 完成：${files.length} 个文件发布到 dist/（${files.join(', ')}）`);

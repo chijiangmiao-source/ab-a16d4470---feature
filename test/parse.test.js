@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseInput, presentPairs, verifyCertificate } = require('../src/parse');
+const { parseInput, parseFixedPair, presentPairs, verifyCertificate } = require('../src/parse');
 
 test('合法输入解析：去空白、索引正确', () => {
   const r = parseInput('A B C D', 'A B\nC D\nA D');
@@ -79,6 +79,40 @@ test('中文通道标识可接受', () => {
 test('presentPairs：对内排序 + 按标识稳定排序', () => {
   const pairs = presentPairs(['B', 'A', 'D', 'C'], [[2, 3], [1, 0]]);
   assert.deepEqual(pairs, [['A', 'B'], ['C', 'D']]);
+});
+
+test('parseFixedPair：合法固定边（允许反向书写、容忍首尾空白）', () => {
+  const p = parseInput('A B C D', 'A B\nC D');
+  const r = parseFixedPair(p.channels, p.edges, ' B ', 'A');
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.pair, [0, 1]);
+});
+
+test('parseFixedPair：未录入通道被拒绝', () => {
+  const p = parseInput('A B C D', 'A B\nC D');
+  const r = parseFixedPair(p.channels, p.edges, 'A', 'X');
+  assert.ok(r.errors.some((e) => e.includes('未录入通道')));
+  assert.equal(r.pair, null);
+});
+
+test('parseFixedPair：两端点相同被拒绝', () => {
+  const p = parseInput('A B C D', 'A B\nC D');
+  const r = parseFixedPair(p.channels, p.edges, 'A', 'A');
+  assert.ok(r.errors.some((e) => e.includes('必须不同')));
+  assert.equal(r.pair, null);
+});
+
+test('parseFixedPair：未录入的兼容边被拒绝', () => {
+  const p = parseInput('A B C D', 'A B\nC D');
+  const r = parseFixedPair(p.channels, p.edges, 'A', 'C');
+  assert.ok(r.errors.some((e) => e.includes('不在已录入')));
+  assert.equal(r.pair, null);
+});
+
+test('parseFixedPair：缺省输入被拒绝', () => {
+  const p = parseInput('A B C D', 'A B\nC D');
+  assert.ok(parseFixedPair(p.channels, p.edges, '', 'B').errors.some((e) => e.includes('两个通道标识')));
+  assert.ok(parseFixedPair(p.channels, p.edges, undefined, undefined).errors.some((e) => e.includes('两个通道标识')));
 });
 
 test('verifyCertificate：合法 K1,3 证书全部核对通过', () => {

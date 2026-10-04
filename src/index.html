@@ -13,6 +13,8 @@
     切除故障通道后，按无向兼容关系为剩余设备寻找<strong>覆盖全部通道的两两配对</strong>。
     计算在 Web Worker 中按<strong>一般图（非二分图）</strong>语义执行 Edmonds 缩花算法；
     无法配对时给出可凭原图逐项核对的 Tutte 失败证书。
+    还可把某条已录入的兼容边指定为必须共同接管的<strong>固定组合</strong>做预演：
+    仅在删去其两个端点后的剩余图上复核，确认这一人为绑定不会让其余通道失去安置机会。
   </p>
 </header>
 
@@ -34,6 +36,22 @@
       <button id="sample-blossom" type="button">载入缩花成功示例（双三角花）</button>
       <button id="clear" type="button">清空</button>
     </div>
+    <fieldset class="fixed-pair">
+      <legend>固定配对预演（可选）</legend>
+      <p class="muted">
+        将某条<strong>已录入</strong>的兼容边指定为必须共同接管的固定组合：
+        仅在删去其两个端点后的剩余图上复核完整配对，确认这一人为绑定不会让其余通道失去安置机会。
+      </p>
+      <div class="fixed-row">
+        <input id="fixed-a" type="text" list="channel-options" autocomplete="off" spellcheck="false"
+          placeholder="固定通道 A（须已录入）" />
+        <span class="fixed-dash">—</span>
+        <input id="fixed-b" type="text" list="channel-options" autocomplete="off" spellcheck="false"
+          placeholder="固定通道 B（须已录入）" />
+        <button id="run-fixed" type="button" class="primary">固定配对复核</button>
+      </div>
+      <datalist id="channel-options"></datalist>
+    </fieldset>
     <div id="status" class="status" role="status" aria-live="polite"></div>
     <div id="errors"></div>
   </section>
@@ -51,6 +69,7 @@
       <li>拒绝<strong>空边图</strong>（没有任何兼容边时偶数个孤立通道无法配对）；</li>
       <li>成功：配对覆盖全部通道，每对均为录入边，按通道标识升序稳定展示；</li>
       <li>失败：展示移除集合 S 与 S 删除后的每个奇数连通分量，奇数分量数<strong>严格大于</strong> |S|，并可对照原图逐项核对；</li>
+      <li>固定配对预演：指定一条<strong>已录入</strong>且<strong>端点不同</strong>的兼容边为固定组合，仅在删去其两个端点的剩余图上求完整配对；可行时固定组合与剩余配对合并展示，全部通道各出现且仅出现一次；不可行时证书<strong>仅针对剩余通道</strong>，不能误作原图的失败证书；</li>
       <li>任何失败提交都会清空上一次通过的配对，不保留旧结果。</li>
     </ul>
   </section>

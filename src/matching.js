@@ -3,6 +3,7 @@
 /**
  * 一般无向图的 Edmonds 缩花（blossom）完美匹配，
  * 并在不存在完美匹配时给出 Tutte-Berge 失败证书。
+ * 另提供固定边预演：删去指定兼容边的两个端点后，仅在剩余图上求解。
  *
  * 同构模块：Node 下 require（测试 / 服务端），
  * 浏览器 Web Worker 下 importScripts 加载。
@@ -185,6 +186,54 @@
   }
 
   /**
+   * 固定边预演：指定兼容边 (u, v) 必须成对接管，
+   * 仅在删去 u、v 后的剩余图上求完整配对（仍走一般图缩花）。
+   *
+   * 成功时 matching 为原图下标（已并入固定边）；失败时 certificate 仅刻画
+   * 剩余图——其下标为剩余图顶点序（remaining 给出剩余顶点在原图中的下标，
+   * remainingEdges 为剩余图上的边），不得当作原图的失败证书使用。
+   *
+   * @param {number} n 原图顶点数
+   * @param {Array<[number, number]>} edges 原图无向边
+   * @param {number} u 固定边端点下标
+   * @param {number} v 固定边端点下标（须与 u 不同）
+   * @returns {{matched: boolean,
+   *            matching: Array<[number,number]>|null,
+   *            certificate: {removed: number[], oddComponents: number[][]}|null,
+   *            remaining: number[],
+   *            remainingEdges: Array<[number,number]>}}
+   */
+  function perfectMatchingWithFixedEdge(n, edges, u, v) {
+    if (
+      !Number.isInteger(u) || !Number.isInteger(v) ||
+      u === v || u < 0 || v < 0 || u >= n || v >= n
+    ) {
+      throw new Error('固定边端点非法');
+    }
+    const remaining = [];
+    for (let i = 0; i < n; i++) {
+      if (i !== u && i !== v) remaining.push(i);
+    }
+    const subIndex = new Array(n).fill(-1);
+    remaining.forEach((orig, i) => {
+      subIndex[orig] = i;
+    });
+    const remainingEdges = [];
+    for (const [a, b] of edges) {
+      if (subIndex[a] !== -1 && subIndex[b] !== -1) {
+        remainingEdges.push([subIndex[a], subIndex[b]]);
+      }
+    }
+    const sub = perfectMatching(remaining.length, remainingEdges);
+    if (!sub.matched) {
+      return { matched: false, matching: null, certificate: sub.certificate, remaining, remainingEdges };
+    }
+    const matching = sub.matching.map(([a, b]) => [remaining[a], remaining[b]]);
+    matching.push([Math.min(u, v), Math.max(u, v)]);
+    return { matched: true, matching, certificate: null, remaining, remainingEdges };
+  }
+
+  /**
    * 匹配已最大时，以全部暴露顶点为根重跑多源森林生长，构造 Tutte 屏障：
    *   S = 奇层顶点（reached 但非 used/偶层）；
    *   G-S 的每个奇连通分量恰含一个暴露根，因此
@@ -236,5 +285,5 @@
     return { removed, oddComponents };
   }
 
-  return { perfectMatching, growForest };
+  return { perfectMatching, perfectMatchingWithFixedEdge, growForest };
 });
