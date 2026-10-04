@@ -36,11 +36,38 @@
     </div>
     <div id="status" class="status" role="status" aria-live="polite"></div>
     <div id="errors"></div>
+
+    <div class="fixed-box">
+      <h2>固定配对预演</h2>
+      <p class="explain">
+        在已取得完整配对的基础上，指定一条<strong>已录入的兼容边</strong>为必须共同接管的固定组合：
+        系统删去这两个通道后，仅在<strong>剩余图</strong>上继续按一般图求完整配对。
+        剩余图若不可配对，给出的阻塞集合<strong>只针对剩余通道</strong>，不作为原图的失败证书。
+      </p>
+      <div class="fixed-inputs">
+        <div class="field">
+          <label for="fixed-a">固定通道 A（须已录入）</label>
+          <input id="fixed-a" type="text" spellcheck="false" autocomplete="off" placeholder="例如 CH-01" />
+        </div>
+        <div class="field">
+          <label for="fixed-b">固定通道 B（须已录入且与 A 有兼容边）</label>
+          <input id="fixed-b" type="text" spellcheck="false" autocomplete="off" placeholder="例如 CH-02" />
+        </div>
+        <button id="fixed-run" type="button" class="primary">固定配对复核</button>
+      </div>
+      <div id="fixed-status" class="status" role="status" aria-live="polite"></div>
+      <div id="fixed-errors"></div>
+    </div>
   </section>
 
   <section id="result" class="result-card" hidden>
     <div id="result-head"></div>
     <div id="result-body"></div>
+  </section>
+
+  <section id="fixed-result" class="result-card fixed-card" hidden>
+    <div id="fixed-result-head"></div>
+    <div id="fixed-result-body"></div>
   </section>
 
   <section class="rules-card">
@@ -52,6 +79,14 @@
       <li>成功：配对覆盖全部通道，每对均为录入边，按通道标识升序稳定展示；</li>
       <li>失败：展示移除集合 S 与 S 删除后的每个奇数连通分量，奇数分量数<strong>严格大于</strong> |S|，并可对照原图逐项核对；</li>
       <li>任何失败提交都会清空上一次通过的配对，不保留旧结果。</li>
+    </ul>
+    <h3>固定配对预演规则</h3>
+    <ul>
+      <li>固定组合只能由<strong>两个已录入的不同通道</strong>发起，且它们之间<strong>必须存在已录入的兼容边</strong>；</li>
+      <li>校验通过后删去固定两端，仅在剩余图上求完整配对，计算仍走一般图 Edmonds 缩花；</li>
+      <li>可行：固定组合与剩余配对合并后按标识升序展示，所有通道只出现一次；</li>
+      <li>不可行：展示的 Tutte 阻塞集合与奇数分量<strong>仅针对剩余通道</strong>，不能当作原图的失败证书；</li>
+      <li>边不存在、通道未知/相同或本次输入校验失败时给出明确反馈并清除旧的固定结论；一般「复核配对」语义不变、独立工作。</li>
     </ul>
   </section>
 </main>

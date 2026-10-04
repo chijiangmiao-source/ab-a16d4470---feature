@@ -119,6 +119,49 @@ button:disabled { opacity: .55; cursor: wait; }
 .verify-ok { color: var(--ok); }
 .muted { color: var(--muted); font-size: 13px; }
 
+/* 固定配对预演区 */
+.fixed-box {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.fixed-box h2 { margin: 0 0 6px; font-size: 17px; }
+.fixed-box .explain { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.fixed-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.fixed-inputs .field { margin-bottom: 0; }
+.fixed-inputs label { font-size: 13px; }
+.fixed-inputs input {
+  width: 100%;
+  background: #0e1626;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.fixed-inputs input:focus { outline: 2px solid var(--primary); outline-offset: 0; }
+@media (max-width: 720px) { .fixed-inputs { grid-template-columns: 1fr; } }
+
+.fixed-card { border-color: rgba(63, 124, 255, 0.55); }
+.fixed-card h2 { margin-top: 0; }
+.fixed-pairs .fixed-row td {
+  background: rgba(63, 124, 255, 0.14);
+  font-weight: 700;
+}
+.fixed-pairs .badge {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 12px;
+  text-align: center;
+}
+.fixed-card .explain { font-size: 13px; }
+
 .rules-card ul { margin: 6px 0 0; padding-left: 22px; color: var(--muted); }
 .rules-card li { margin-bottom: 4px; }
 

@@ -236,5 +236,42 @@
     return { removed, oddComponents };
   }
 
-  return { perfectMatching, growForest };
+  /**
+   * 固定配对预演：假设 fixed=[a,b] 这一条已录入边必须共同接管，
+   * 删去这两个端点后，仅在剩余诱导子图上继续按一般图求完美匹配。
+   * 调用方须先确认 a!==b 且 (a,b) 是图上的录入边。
+   *
+   * 注意：剩余图失败时 result.certificate 只描述剩余图，
+   * 不能作为原图不存在完美匹配的证书。
+   *
+   * @param {number} n 原图顶点数
+   * @param {Array<[number, number]>} edges 原图无向边
+   * @param {[number, number]} fixed 固定边两端点（原图下标，互不相同）
+   * @returns {{remaining: number[], residualEdges: Array<[number,number]>,
+   *            result: ReturnType<perfectMatching>}}
+   *   remaining[k] 为剩余图局部下标 k 对应的原图下标；
+   *   result.matching / result.certificate 均使用局部下标。
+   */
+  function reviewFixedPair(n, edges, fixed) {
+    const [a, b] = fixed;
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a === b || a < 0 || b < 0 || a >= n || b >= n) {
+      throw new Error('固定边端点非法（须为两个不同的有效下标）');
+    }
+    const remaining = [];
+    const oldToNew = new Array(n).fill(-1);
+    for (let i = 0; i < n; i++) {
+      if (i === a || i === b) continue;
+      oldToNew[i] = remaining.length;
+      remaining.push(i);
+    }
+    const residualEdges = [];
+    for (const [u, v] of edges) {
+      if (u === a || u === b || v === a || v === b) continue;
+      residualEdges.push([oldToNew[u], oldToNew[v]]);
+    }
+    const result = perfectMatching(remaining.length, residualEdges);
+    return { remaining, residualEdges, result };
+  }
+
+  return { perfectMatching, growForest, reviewFixedPair };
 });

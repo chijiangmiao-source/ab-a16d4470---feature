@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseInput, presentPairs, verifyCertificate } = require('../src/parse');
+const { parseInput, presentPairs, verifyCertificate, resolveFixedPair } = require('../src/parse');
 
 test('合法输入解析：去空白、索引正确', () => {
   const r = parseInput('A B C D', 'A B\nC D\nA D');
@@ -99,4 +99,62 @@ test('verifyCertificate：严格不等式不满足被识破', () => {
   const checks = verifyCertificate(2, edges, [0], [[1]]);
   const strict = checks.find((c) => c.label.includes('严格不等式'));
   assert.equal(strict.ok, false);
+});
+
+test('verifyCertificate：剩余图标签进入核对项（固定预演失败用）', () => {
+  // 剩余图是星型 K1,3：4 个剩余通道，S={中心局部下标 0}，3 个单点奇分量
+  const residualN = 4;
+  const residualEdges = [[0, 1], [0, 2], [0, 3]];
+  const checks = verifyCertificate(residualN, residualEdges, [0], [[1], [2], [3]], '剩余图（删去固定两端后的通道）');
+  assert.ok(checks.every((c) => c.ok), JSON.stringify(checks));
+  assert.ok(checks[0].label.includes('剩余图'), checks[0].label);
+  const cover = checks.find((c) => c.label.includes('内部连通'));
+  assert.ok(cover.label.includes('剩余图'), cover.label);
+});
+
+// ---------- resolveFixedPair 固定组合规则 ----------
+
+test('resolveFixedPair：合法固定边（含反向书写）返回规范化下标对与边序号', () => {
+  const channels = ['A', 'B', 'C', 'D'];
+  const edges = [[0, 1], [2, 3]];
+  const r1 = resolveFixedPair(channels, edges, 'B', 'A');
+  assert.deepEqual(r1.errors, []);
+  assert.deepEqual(r1.fixed, [0, 1]);
+  assert.equal(r1.edgeLine, 1);
+  const r2 = resolveFixedPair(channels, edges, 'C', 'D');
+  assert.deepEqual(r2.fixed, [2, 3]);
+  assert.equal(r2.edgeLine, 2);
+});
+
+test('resolveFixedPair：空端点被拒绝', () => {
+  const r = resolveFixedPair(['A', 'B', 'C', 'D'], [[0, 1]], '', 'B');
+  assert.equal(r.fixed, null);
+  assert.ok(r.errors[0].includes('两端不能为空'));
+});
+
+test('resolveFixedPair：两端相同被拒绝', () => {
+  const r = resolveFixedPair(['A', 'B', 'C', 'D'], [[0, 1]], 'A', ' A ');
+  assert.equal(r.fixed, null);
+  assert.ok(r.errors[0].includes('不同通道'));
+});
+
+test('resolveFixedPair：未知通道被拒绝', () => {
+  const r = resolveFixedPair(['A', 'B', 'C', 'D'], [[0, 1]], 'A', 'X');
+  assert.equal(r.fixed, null);
+  assert.ok(r.errors[0].includes('未录入通道'));
+  assert.ok(r.errors[0].includes('「X」'));
+});
+
+test('resolveFixedPair：边不存在（两通道均已录入但不相邻）被拒绝', () => {
+  const channels = ['A', 'B', 'C', 'D'];
+  const edges = [[0, 1], [2, 3]];
+  const r = resolveFixedPair(channels, edges, 'A', 'C');
+  assert.equal(r.fixed, null);
+  assert.ok(r.errors[0].includes('不存在已录入的兼容边'));
+});
+
+test('resolveFixedPair：两个未知通道都在反馈中点名', () => {
+  const r = resolveFixedPair(['A', 'B', 'C', 'D'], [[0, 1]], 'X', 'Y');
+  assert.equal(r.fixed, null);
+  assert.ok(r.errors[0].includes('「X」') && r.errors[0].includes('「Y」'));
 });
